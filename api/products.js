@@ -9,7 +9,8 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const { category, featured, best_seller, search, min_price, max_price, color, size } = req.query;
-      let query = supabase.from('products').select('*, categories(name, name_ar, slug)').order('created_at', { ascending: false });
+      
+      let query = supabase.from('products').select('*').order('created_at', { ascending: false });
       
       if (category) query = query.eq('category_id', category);
       if (featured === 'true') query = query.eq('featured', true);
@@ -17,16 +18,22 @@ export default async function handler(req, res) {
       if (search) query = query.or(`name.ilike.%${search}%,name_ar.ilike.%${search}%,description.ilike.%${search}%`);
       if (min_price) query = query.gte('price', parseFloat(min_price));
       if (max_price) query = query.lte('price', parseFloat(max_price));
-      if (color) {
-        query = query.contains('colors', [color]);
-      }
-      if (size) {
-        query = query.contains('sizes', [size]);
-      }
+      if (color) query = query.contains('colors', [color]);
+      if (size) query = query.contains('sizes', [size]);
       
-      const { data, error } = await query;
+      const { data: products, error } = await query;
       if (error) throw error;
-      return res.status(200).json(data);
+
+      const { data: categories } = await supabase.from('categories').select('*');
+      const catMap = {};
+      (categories || []).forEach(c => { catMap[c.id] = c; });
+
+      const result = (products || []).map(p => ({
+        ...p,
+        categories: catMap[p.category_id] || null
+      }));
+
+      return res.status(200).json(result);
     }
 
     if (req.method === 'POST') {
@@ -34,9 +41,13 @@ export default async function handler(req, res) {
       const { data, error } = await supabase
         .from('products')
         .insert({ name, name_ar, description, description_ar, price, category_id, images, colors, sizes, stock, featured, best_seller })
-        .select('*, categories(name, name_ar, slug)')
+        .select('*')
         .single();
       if (error) throw error;
+
+      const { data: cat } = await supabase.from('categories').select('*').eq('id', data.category_id).single();
+      data.categories = cat || null;
+
       return res.status(201).json(data);
     }
 
@@ -47,9 +58,13 @@ export default async function handler(req, res) {
         .from('products')
         .update(updates)
         .eq('id', id)
-        .select('*, categories(name, name_ar, slug)')
+        .select('*')
         .single();
       if (error) throw error;
+
+      const { data: cat } = await supabase.from('categories').select('*').eq('id', data.category_id).single();
+      data.categories = cat || null;
+
       return res.status(200).json(data);
     }
 
