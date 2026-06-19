@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Pencil, Trash2, X, Upload, Save, ShoppingBag, AlertCircle, Link, ImagePlus, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, ShoppingBag, AlertCircle, ImagePlus, Loader2 } from 'lucide-react';
 
 const COLORS = ['Noir', 'Blanc', 'Beige', 'Rose', 'Rouge', 'Marron', 'Or', 'Argent'];
 const SIZES = ['36', '37', '38', '39', '40', '41'];
@@ -275,12 +275,17 @@ export default function AdminProducts() {
                 <textarea value={form.description_ar} onChange={e => setForm({...form, description_ar: e.target.value})} className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 resize-none" rows={3} dir="rtl" placeholder="وصف المنتج..." />
               </div>
 
+              {/* Images */}
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">Images</label>
                 <div className="mb-3">
                   <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" multiple className="hidden" />
                   <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 hover:border-rose-400 rounded-xl py-4 px-4 transition-colors text-gray-500 hover:text-rose-600 disabled:opacity-50">
-                    {uploading ? (<><Loader2 size={20} className="animate-spin" /><span className="text-sm font-medium">Téléchargement en cours...</span></>) : (<><ImagePlus size={20} /><span className="text-sm font-medium">Choisir des images depuis votre appareil</span></>)}
+                    {uploading ? (
+                      <><Loader2 size={20} className="animate-spin" /><span className="text-sm font-medium">Téléchargement en cours...</span></>
+                    ) : (
+                      <><ImagePlus size={20} /><span className="text-sm font-medium">Choisir des images depuis votre appareil</span></>
+                    )}
                   </button>
                 </div>
                 <div className="flex items-center gap-3 mb-3">
@@ -307,22 +312,32 @@ export default function AdminProducts() {
                 )}
               </div>
 
+              {/* Colors */}
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">Couleurs</label>
                 <div className="flex flex-wrap gap-2">
-                  {COLORS.map(c => (<button key={c} type="button" onClick={() => toggleColor(c)} className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${form.colors.includes(c) ? 'bg-rose-700 text-white border-rose-700' : 'border-gray-300 hover:border-rose-300'}`}>{c}</button>))}
+                  {COLORS.map(c => (
+                    <button key={c} type="button" onClick={() => toggleColor(c)} className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${form.colors.includes(c) ? 'bg-rose-700 text-white border-rose-700' : 'border-gray-300 hover:border-rose-300'}`}>{c}</button>
+                  ))}
                 </div>
               </div>
+
+              {/* Sizes */}
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">Pointures</label>
                 <div className="flex flex-wrap gap-2">
-                  {SIZES.map(s => (<button key={s} type="button" onClick={() => toggleSize(s)} className={`w-10 h-10 rounded-lg text-xs border transition-colors flex items-center justify-center ${form.sizes.includes(s) ? 'bg-rose-700 text-white border-rose-700' : 'border-gray-300 hover:border-rose-300'}`}>{s}</button>))}
+                  {SIZES.map(s => (
+                    <button key={s} type="button" onClick={() => toggleSize(s)} className={`w-10 h-10 rounded-lg text-xs border transition-colors flex items-center justify-center ${form.sizes.includes(s) ? 'bg-rose-700 text-white border-rose-700' : 'border-gray-300 hover:border-rose-300'}`}>{s}</button>
+                  ))}
                 </div>
               </div>
+
+              {/* Toggles */}
               <div className="flex gap-6">
                 <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={form.featured} onChange={e => setForm({...form, featured: e.target.checked})} className="w-4 h-4 text-rose-600 rounded focus:ring-rose-500" /><span className="text-sm text-gray-700">Nouveauté</span></label>
                 <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={form.best_seller} onChange={e => setForm({...form, best_seller: e.target.checked})} className="w-4 h-4 text-rose-600 rounded focus:ring-rose-500" /><span className="text-sm text-gray-700">Meilleure vente</span></label>
               </div>
+
               <button onClick={handleSave} disabled={saving || uploading} className="w-full bg-rose-700 hover:bg-rose-800 disabled:bg-rose-400 text-white py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2">
                 <Save size={16} />{saving ? 'Enregistrement...' : editing ? 'MODIFIER' : 'AJOUTER'}
               </button>
