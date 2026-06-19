@@ -10,7 +10,6 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { status, id } = req.query;
 
-      // Fetch orders
       let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
       if (id) query = query.eq('id', id);
       if (status) query = query.eq('status', status);
@@ -18,16 +17,13 @@ export default async function handler(req, res) {
       const { data: orders, error } = await query;
       if (error) throw error;
 
-      // Fetch all order items
       const { data: allItems } = await supabase.from('order_items').select('*');
 
-      // Merge items into orders
       const result = (orders || []).map(order => ({
         ...order,
         order_items: (allItems || []).filter(item => item.order_id === order.id)
       }));
 
-      // If single order requested
       if (id) {
         return res.status(200).json(result[0] || null);
       }
@@ -38,7 +34,6 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const { customer_name, customer_phone, wilaya, address, total_amount, items } = req.body;
 
-      // Create the order
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({ customer_name, customer_phone, wilaya, address, total_amount, status: 'pending' })
@@ -46,7 +41,6 @@ export default async function handler(req, res) {
         .single();
       if (orderError) throw orderError;
 
-      // Create order items
       if (items && items.length > 0) {
         const orderItems = items.map(item => ({
           order_id: order.id,
@@ -62,7 +56,6 @@ export default async function handler(req, res) {
           .insert(orderItems);
         if (itemsError) throw itemsError;
 
-        // Decrease stock for each item
         for (const item of items) {
           const { data: product } = await supabase.from('products').select('stock').eq('id', item.product_id).single();
           if (product && product.stock >= item.quantity) {
@@ -71,7 +64,6 @@ export default async function handler(req, res) {
         }
       }
 
-      // Return order with items
       const { data: newItems } = await supabase.from('order_items').select('*').eq('order_id', order.id);
       order.order_items = newItems || [];
 
@@ -89,7 +81,6 @@ export default async function handler(req, res) {
         .single();
       if (error) throw error;
 
-      // Attach items
       const { data: items } = await supabase.from('order_items').select('*').eq('order_id', data.id);
       data.order_items = items || [];
 
@@ -100,7 +91,6 @@ export default async function handler(req, res) {
       const { id } = req.body;
       if (!id) return res.status(400).json({ error: 'Order ID is required' });
 
-      // Delete order items first
       await supabase.from('order_items').delete().eq('order_id', id);
 
       const { error } = await supabase
