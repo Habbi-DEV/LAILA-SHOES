@@ -8,32 +8,26 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      // Total revenue
       const { data: completedOrders } = await supabase
         .from('orders')
         .select('total_amount')
         .eq('status', 'delivered');
       const totalRevenue = completedOrders?.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0) || 0;
 
-      // Total orders
       const { data: allOrders } = await supabase.from('orders').select('id');
       const totalOrders = allOrders?.length || 0;
 
-      // Pending orders
       const { data: pendingData } = await supabase.from('orders').select('id').eq('status', 'pending');
       const pendingOrders = pendingData?.length || 0;
 
-      // Total products
       const { data: allProducts } = await supabase.from('products').select('id');
       const totalProducts = allProducts?.length || 0;
 
-      // Low stock products (stock <= 5)
       const { data: lowStockProducts } = await supabase
         .from('products')
         .select('id, name, name_ar, stock')
         .lte('stock', 5);
 
-      // Best sellers (by order item count)
       const { data: orderItems } = await supabase
         .from('order_items')
         .select('product_id, product_name, quantity');
@@ -50,14 +44,12 @@ export default async function handler(req, res) {
         .sort((a, b) => b.total_sold - a.total_sold)
         .slice(0, 5);
 
-      // Recent orders
       const { data: recentOrders } = await supabase
         .from('orders')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(5);
 
-      // Sales by status
       const { data: ordersByStatus } = await supabase
         .from('orders')
         .select('status, total_amount');
@@ -69,7 +61,6 @@ export default async function handler(req, res) {
         }
       });
 
-      // Daily sales for chart (last 7 days)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const { data: recentSalesData } = await supabase
