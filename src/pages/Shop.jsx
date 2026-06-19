@@ -150,9 +150,23 @@ export default function Shop() {
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">Prix (DA)</label>
                 <div className="flex gap-2 items-center">
-                  <input type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="Min" min="0" />
+                  <input
+                    type="number"
+                    value={minPrice}
+                    onChange={e => setMinPrice(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    placeholder="Min"
+                    min="0"
+                  />
                   <span className="text-gray-400">-</span>
-                  <input type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="Max" min="0" />
+                  <input
+                    type="number"
+                    value={maxPrice}
+                    onChange={e => setMaxPrice(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    placeholder="Max"
+                    min="0"
+                  />
                 </div>
               </div>
             </div>
