@@ -15,8 +15,11 @@ export default function Shop() {
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '');
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
-  const [priceRange, setPriceRange] = useState([0, 50000]);
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
   const [sortBy, setSortBy] = useState('newest');
+
+  const isSandales = selectedCategory === 'sandales';
 
   useEffect(() => {
     const cat = searchParams.get('category');
@@ -28,6 +31,12 @@ export default function Shop() {
   }, []);
 
   useEffect(() => {
+    if (!isSandales) {
+      setSelectedSize('');
+    }
+  }, [isSandales]);
+
+  useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
     if (selectedCategory) {
@@ -36,41 +45,40 @@ export default function Shop() {
     }
     if (selectedColor) params.set('color', selectedColor);
     if (selectedSize) params.set('size', selectedSize);
-    if (priceRange[0] > 0) params.set('min_price', priceRange[0]);
-    if (priceRange[1] < 50000) params.set('max_price', priceRange[1]);
+    if (minPrice !== '' && !isNaN(Number(minPrice))) params.set('min_price', minPrice);
+    if (maxPrice !== '' && !isNaN(Number(maxPrice))) params.set('max_price', maxPrice);
 
     fetch(`/api/products?${params.toString()}`)
       .then(r => r.json())
       .then(data => {
-        let sorted = [...data];
+        let sorted = [...(Array.isArray(data) ? data : [])];
         if (sortBy === 'price_asc') sorted.sort((a, b) => a.price - b.price);
         else if (sortBy === 'price_desc') sorted.sort((a, b) => b.price - a.price);
         else if (sortBy === 'name') sorted.sort((a, b) => a.name.localeCompare(b.name));
         setProducts(sorted);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
-  }, [selectedCategory, selectedColor, selectedSize, priceRange, sortBy, categories]);
+      .catch(() => { setProducts([]); setLoading(false); });
+  }, [selectedCategory, selectedColor, selectedSize, minPrice, maxPrice, sortBy, categories]);
 
   const clearFilters = () => {
     setSelectedCategory('');
     setSelectedColor('');
     setSelectedSize('');
-    setPriceRange([0, 50000]);
+    setMinPrice('');
+    setMaxPrice('');
   };
 
-  const hasFilters = selectedCategory || selectedColor || selectedSize || priceRange[0] > 0 || priceRange[1] < 50000;
+  const hasFilters = selectedCategory || selectedColor || selectedSize || minPrice !== '' || maxPrice !== '';
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20 md:pt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* Header */}
         <div className="py-6">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900" style={{ fontFamily: 'serif' }}>Boutique</h1>
           <p className="text-gray-500 mt-1">{products.length} produit{products.length !== 1 ? 's' : ''}</p>
         </div>
 
-        {/* Toolbar */}
         <div className="flex items-center justify-between mb-6 gap-4">
           <button
             onClick={() => setShowFilters(!showFilters)}
@@ -95,7 +103,6 @@ export default function Shop() {
           </div>
         </div>
 
-        {/* Filters Panel */}
         {showFilters && (
           <div className="bg-white rounded-2xl p-6 mb-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
@@ -107,7 +114,6 @@ export default function Shop() {
               )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Category */}
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">Catégorie</label>
                 <div className="space-y-2">
@@ -123,7 +129,6 @@ export default function Shop() {
                   ))}
                 </div>
               </div>
-              {/* Color */}
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">Couleur</label>
                 <select value={selectedColor} onChange={e => setSelectedColor(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
@@ -131,30 +136,29 @@ export default function Shop() {
                   {COLORS.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
-              {/* Size */}
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Pointure</label>
-                <div className="flex flex-wrap gap-2">
-                  <button onClick={() => setSelectedSize('')} className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${!selectedSize ? 'bg-rose-700 text-white border-rose-700' : 'border-gray-300 hover:border-rose-300'}`}>Tout</button>
-                  {SIZES.map(s => (
-                    <button key={s} onClick={() => setSelectedSize(selectedSize === s ? '' : s)} className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${selectedSize === s ? 'bg-rose-700 text-white border-rose-700' : 'border-gray-300 hover:border-rose-300'}`}>{s}</button>
-                  ))}
+              {isSandales && (
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Pointure</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => setSelectedSize('')} className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${!selectedSize ? 'bg-rose-700 text-white border-rose-700' : 'border-gray-300 hover:border-rose-300'}`}>Tout</button>
+                    {SIZES.map(s => (
+                      <button key={s} onClick={() => setSelectedSize(selectedSize === s ? '' : s)} className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${selectedSize === s ? 'bg-rose-700 text-white border-rose-700' : 'border-gray-300 hover:border-rose-300'}`}>{s}</button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              {/* Price */}
+              )}
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 block">Prix (DA)</label>
                 <div className="flex gap-2 items-center">
-                  <input type="number" value={priceRange[0]} onChange={e => setPriceRange([parseInt(e.target.value) || 0, priceRange[1]])} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="Min" />
+                  <input type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="Min" min="0" />
                   <span className="text-gray-400">-</span>
-                  <input type="number" value={priceRange[1]} onChange={e => setPriceRange([priceRange[0], parseInt(e.target.value) || 50000])} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="Max" />
+                  <input type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500" placeholder="Max" min="0" />
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Products Grid */}
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 pb-12">
             {[1,2,3,4,5,6,7,8].map(i => (
