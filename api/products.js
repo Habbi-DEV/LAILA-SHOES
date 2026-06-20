@@ -30,30 +30,52 @@ export default async function handler(req, res) {
 
       const result = (products || []).map(p => ({
         ...p,
-        categories: catMap[p.category_id] || null,
-        // Normalize variants: if variants exist use them, otherwise build from old colors/images
-        variants: normalizeVariants(p)
+        categories: catMap[p.category_id] || null
       }));
 
       return res.status(200).json(result);
     }
 
     if (req.method === 'POST') {
-      const { name, name_ar, description, description_ar, price, category_id, variants, sizes, stock, featured, best_seller } = req.body;
+      const body = req.body;
+      const { name, name_ar, description, description_ar, price, category_id, sizes, stock, featured, best_seller } = body;
       
-      // Derive colors and images from variants for backward compatibility
-      const { colors, images } = extractFromVariants(variants);
+      let images = body.images || [];
+      let colors = body.colors || [];
       
+      if (body.variants && Array.isArray(body.variants) && body.variants.length > 0) {
+        colors = body.variants.map(v => v.color).filter(Boolean);
+        images = body.variants[0]?.images || body.images || [];
+      }
+
+      const insertData = {
+        name,
+        name_ar: name_ar || null,
+        description: description || null,
+        description_ar: description_ar || null,
+        price: parseFloat(price),
+        category_id: parseInt(category_id),
+        images: Array.isArray(images) ? images : [],
+        colors: Array.isArray(colors) ? colors : [],
+        sizes: Array.isArray(sizes) ? sizes : [],
+        stock: parseInt(stock) || 0,
+        featured: featured || false,
+        best_seller: best_seller || false
+      };
+
+      if (body.variants) {
+        insertData.variants = body.variants;
+      }
+
       const { data, error } = await supabase
         .from('products')
-        .insert({ name, name_ar, description, description_ar, price, category_id, variants, colors, images, sizes, stock, featured, best_seller })
+        .insert(insertData)
         .select('*')
         .single();
       if (error) throw error;
 
       const { data: cat } = await supabase.from('categories').select('*').eq('id', data.category_id).single();
       data.categories = cat || null;
-      data.variants = normalizeVariants(data);
 
       return res.status(201).json(data);
     }
@@ -62,13 +84,18 @@ export default async function handler(req, res) {
       const { id, ...updates } = req.body;
       if (!id) return res.status(400).json({ error: 'Product ID is required' });
       
-      // If variants are being updated, also update colors and images
-      if (updates.variants) {
-        const { colors, images } = extractFromVariants(updates.variants);
-        updates.colors = colors;
-        updates.images = images;
-      }
+      if (updates.price !== undefined) updates.price = parseFloat(updates.price);
+      if (updates.category_id !== undefined) updates.category_id = parseInt(updates.category_id);
+      if (updates.stock !== undefined) updates.stock = parseInt(updates.stock) || 0;
+      if (updates.images !== undefined) updates.images = Array.isArray(updates.images) ? updates.images : [];
+      if (updates.colors !== undefined) updates.colors = Array.isArray(updates.colors) ? updates.colors : [];
+      if (updates.sizes !== undefined) updates.sizes = Array.isArray(updates.sizes) ? updates.sizes : [];
       
+      if (updates.variants && Array.isArray(updates.variants) && updates.variants.length > 0) {
+        updates.colors = updates.variants.map(v => v.color).filter(Boolean);
+        updates.images = updates.variants[0]?.images || updates.images || [];
+      }
+
       const { data, error } = await supabase
         .from('products')
         .update(updates)
@@ -79,7 +106,6 @@ export default async function handler(req, res) {
 
       const { data: cat } = await supabase.from('categories').select('*').eq('id', data.category_id).single();
       data.categories = cat || null;
-      data.variants = normalizeVariants(data);
 
       return res.status(200).json(data);
     }
@@ -97,37 +123,4 @@ export default async function handler(req, res) {
     console.error('Products API error:', err);
     res.status(500).json({ error: err.message });
   }
-}
-
-// Helper: Normalize variants from product data
-function normalizeVariants(product) {
-  // If variants column exists and has data, use it
-  if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
-    return product.variants;
-  }
-  // Fallback: build variants from old colors/images arrays
-  const colors = product.colors || [];
-  const images = product.images || [];
-  if (colors.length === 0) return [];
-  
-  const colorMap = {
-    'Noir': '#1a1a1a', 'Blanc': '#FFFFFF', 'Beige': '#F5F5DC', 'Rose': '#FF69B4',
-    'Rouge': '#DC143C', 'Marron': '#8B4513', 'Or': '#FFD700', 'Argent': '#C0C0C0'
-  };
-  
-  return colors.map((color, idx) => ({
-    color,
-    colorCode: colorMap[color] || '#888888',
-    images: idx === 0 ? images : images // Share same images as fallback
-  }));
-}
-
-// Helper: Extract colors and images arrays from variants for backward compat
-function extractFromVariants(variants) {
-  if (!variants || !Array.isArray(variants) || variants.length === 0) {
-    return { colors: [], images: [] };
-  }
-  const colors = variants.map(v => v.color);
-  const images = variants[0]?.images || [];
-  return { colors, images };
 }
