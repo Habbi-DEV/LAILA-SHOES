@@ -14,7 +14,8 @@ export default async function handler(req, res) {
       }
 
       const buffer = Buffer.from(fileBase64, 'base64');
-      const uniqueName = `${Date.now()}-${fileName}`;
+      const safeName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const uniqueName = `${Date.now()}-${safeName}`;
 
       const { data, error } = await supabase.storage
         .from('product-images')

@@ -9,34 +9,38 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const { status, id } = req.query;
-      if (id) {
-        const { data, error } = await supabase
-          .from('orders')
-          .select('*, order_items(*)')
-          .eq('id', id)
-          .single();
-        if (error) throw error;
-        return res.status(200).json(data);
-      }
-      let query = supabase.from('orders').select('*, order_items(*)').order('created_at', { ascending: false });
+
+      // Fetch orders
+      let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
+      if (id) query = query.eq('id', id);
       if (status) query = query.eq('status', status);
-      const { data, error } = await query;
+
+      const { data: orders, error } = await query;
       if (error) throw error;
-      return res.status(200).json(data);
+
+      // Fetch all order items
+      const { data: allItems } = await supabase.from('order_items').select('*');
+
+      // Merge items into orders
+      const result = (orders || []).map(order => ({
+        ...order,
+        order_items: (allItems || []).filter(item => item.order_id === order.id)
+      }));
+
+      if (id) return res.status(200).json(result[0] || null);
+      return res.status(200).json(result);
     }
 
     if (req.method === 'POST') {
       const { customer_name, customer_phone, wilaya, address, total_amount, items } = req.body;
       
-      // Create the order
       const { data: order, error: orderError } = await supabase
         .from('orders')
-        .insert({ customer_name, customer_phone, wilaya, address, total_amount, status: 'pending' })
-        .select()
+        .insert({ customer_name, customer_phone, wilaya, address: address || '', total_amount, status: 'pending' })
+        .select('*')
         .single();
       if (orderError) throw orderError;
 
-      // Create order items
       if (items && items.length > 0) {
         const orderItems = items.map(item => ({
           order_id: order.id,
@@ -47,12 +51,9 @@ export default async function handler(req, res) {
           color: item.color || null,
           size: item.size || null
         }));
-        const { error: itemsError } = await supabase
-          .from('order_items')
-          .insert(orderItems);
+        const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
         if (itemsError) throw itemsError;
 
-        // Decrease stock for each item
         for (const item of items) {
           const { data: product } = await supabase.from('products').select('stock').eq('id', item.product_id).single();
           if (product && product.stock >= item.quantity) {
@@ -60,6 +61,9 @@ export default async function handler(req, res) {
           }
         }
       }
+
+      const { data: newItems } = await supabase.from('order_items').select('*').eq('order_id', order.id);
+      order.order_items = newItems || [];
 
       return res.status(201).json(order);
     }
@@ -71,19 +75,21 @@ export default async function handler(req, res) {
         .from('orders')
         .update({ status })
         .eq('id', id)
-        .select('*, order_items(*)')
+        .select('*')
         .single();
       if (error) throw error;
+
+      const { data: items } = await supabase.from('order_items').select('*').eq('order_id', data.id);
+      data.order_items = items || [];
+
       return res.status(200).json(data);
     }
 
     if (req.method === 'DELETE') {
       const { id } = req.body;
       if (!id) return res.status(400).json({ error: 'Order ID is required' });
-      const { error } = await supabase
-        .from('orders')
-        .delete()
-        .eq('id', id);
+      await supabase.from('order_items').delete().eq('order_id', id);
+      const { error } = await supabase.from('orders').delete().eq('id', id);
       if (error) throw error;
       return res.status(200).json({ ok: true });
     }

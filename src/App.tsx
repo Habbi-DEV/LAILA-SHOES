@@ -16,6 +16,7 @@ import AdminDashboard from './pages/admin/Dashboard';
 import AdminProducts from './pages/admin/Products';
 import AdminOrders from './pages/admin/Orders';
 import AdminInventory from './pages/admin/Inventory';
+import ProductDetailDemo from './pages/ProductDetailDemo';
 
 // Safe Google redirect handler - won't crash if it fails
 try {
@@ -59,6 +60,7 @@ function App() {
               <Route path="/shop" element={<StoreLayout><Shop /></StoreLayout>} />
               <Route path="/product/:id" element={<StoreLayout><ProductDetails /></StoreLayout>} />
               <Route path="/checkout" element={<StoreLayout><Checkout /></StoreLayout>} />
+              <Route path="/demo/product-detail" element={<StoreLayout><ProductDetailDemo /></StoreLayout>} />
 
               {/* Admin */}
               <Route path="/admin/login" element={<AdminLogin />} />

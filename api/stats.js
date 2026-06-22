@@ -8,101 +8,58 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      // Total revenue
-      const { data: completedOrders } = await supabase
-        .from('orders')
-        .select('total_amount')
-        .eq('status', 'delivered');
+      const { data: completedOrders } = await supabase.from('orders').select('total_amount').eq('status', 'delivered');
       const totalRevenue = completedOrders?.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0) || 0;
 
-      // Total orders
-      const { count: totalOrders } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true });
+      const { data: allOrders } = await supabase.from('orders').select('id');
+      const totalOrders = allOrders?.length || 0;
 
-      // Pending orders
-      const { count: pendingOrders } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
+      const { data: pendingData } = await supabase.from('orders').select('id').eq('status', 'pending');
+      const pendingOrders = pendingData?.length || 0;
 
-      // Total products
-      const { count: totalProducts } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true });
+      const { data: allProducts } = await supabase.from('products').select('id');
+      const totalProducts = allProducts?.length || 0;
 
-      // Low stock products (stock <= 5)
-      const { data: lowStockProducts } = await supabase
-        .from('products')
-        .select('id, name, name_ar, stock')
-        .lte('stock', 5);
+      // Low stock variants (stock <= 3)
+      const { data: lowStockVariants } = await supabase
+        .from('variants')
+        .select('id, product_id, color, pointure, stock')
+        .lte('stock', 3);
 
-      // Best sellers (by order item count)
-      const { data: orderItems } = await supabase
-        .from('order_items')
-        .select('product_id, product_name, quantity');
-      
+      // Enrich with product names
+      const { data: allProductsData } = await supabase.from('products').select('id, name, name_ar');
+      const prodMap = {};
+      (allProductsData || []).forEach(p => { prodMap[p.id] = p; });
+
+      const lowStockProducts = (lowStockVariants || []).map(v => ({
+        ...v,
+        product: prodMap[v.product_id] || null
+      }));
+
+      // Best sellers
+      const { data: orderItems } = await supabase.from('order_items').select('product_id, product_name, quantity');
       const productSales = {};
       orderItems?.forEach(item => {
-        if (!productSales[item.product_id]) {
-          productSales[item.product_id] = { name: item.product_name, total_sold: 0 };
-        }
+        if (!productSales[item.product_id]) productSales[item.product_id] = { name: item.product_name, total_sold: 0 };
         productSales[item.product_id].total_sold += item.quantity;
       });
-      const bestSellers = Object.entries(productSales)
-        .map(([id, info]) => ({ product_id: id, ...info }))
-        .sort((a, b) => b.total_sold - a.total_sold)
-        .slice(0, 5);
+      const bestSellers = Object.entries(productSales).map(([id, info]) => ({ product_id: id, ...info })).sort((a, b) => b.total_sold - a.total_sold).slice(0, 5);
 
       // Recent orders
-      const { data: recentOrders } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5);
+      const { data: recentOrders } = await supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(5);
 
       // Sales by status
-      const { data: ordersByStatus } = await supabase
-        .from('orders')
-        .select('status, total_amount');
-      
-      const salesByStatus = {
-        pending: 0,
-        shipped: 0,
-        delivered: 0,
-        cancelled: 0
-      };
-      ordersByStatus?.forEach(o => {
-        if (salesByStatus[o.status] !== undefined) {
-          salesByStatus[o.status] += parseFloat(o.total_amount || 0);
-        }
-      });
+      const { data: ordersByStatus } = await supabase.from('orders').select('status, total_amount');
+      const salesByStatus = { pending: 0, shipped: 0, delivered: 0, cancelled: 0 };
+      ordersByStatus?.forEach(o => { if (salesByStatus[o.status] !== undefined) salesByStatus[o.status] += parseFloat(o.total_amount || 0); });
 
-      // Daily sales for chart (last 7 days)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const { data: recentSalesData } = await supabase
-        .from('orders')
-        .select('created_at, total_amount')
-        .gte('created_at', sevenDaysAgo.toISOString())
-        .order('created_at', { ascending: true });
-      
-      const dailySales = {};
-      recentSalesData?.forEach(o => {
-        const day = new Date(o.created_at).toLocaleDateString('en-US', { weekday: 'short' });
-        dailySales[day] = (dailySales[day] || 0) + parseFloat(o.total_amount || 0);
-      });
+      // Total variants
+      const { data: allVariants } = await supabase.from('variants').select('id');
+      const totalVariants = allVariants?.length || 0;
 
       return res.status(200).json({
-        totalRevenue,
-        totalOrders,
-        pendingOrders,
-        totalProducts,
-        lowStockProducts,
-        bestSellers,
-        recentOrders,
-        salesByStatus,
-        dailySales
+        totalRevenue, totalOrders, pendingOrders, totalProducts,
+        lowStockProducts, bestSellers, recentOrders, salesByStatus, totalVariants
       });
     }
 
