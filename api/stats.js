@@ -16,20 +16,16 @@ export default async function handler(req, res) {
       const totalRevenue = completedOrders?.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0) || 0;
 
       // Total orders
-      const { count: totalOrders } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true });
+      const { data: allOrders } = await supabase.from('orders').select('id');
+      const totalOrders = allOrders?.length || 0;
 
       // Pending orders
-      const { count: pendingOrders } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
+      const { data: pendingData } = await supabase.from('orders').select('id').eq('status', 'pending');
+      const pendingOrders = pendingData?.length || 0;
 
       // Total products
-      const { count: totalProducts } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true });
+      const { data: allProducts } = await supabase.from('products').select('id');
+      const totalProducts = allProducts?.length || 0;
 
       // Low stock products (stock <= 5)
       const { data: lowStockProducts } = await supabase
@@ -41,7 +37,7 @@ export default async function handler(req, res) {
       const { data: orderItems } = await supabase
         .from('order_items')
         .select('product_id, product_name, quantity');
-      
+
       const productSales = {};
       orderItems?.forEach(item => {
         if (!productSales[item.product_id]) {
@@ -65,13 +61,8 @@ export default async function handler(req, res) {
       const { data: ordersByStatus } = await supabase
         .from('orders')
         .select('status, total_amount');
-      
-      const salesByStatus = {
-        pending: 0,
-        shipped: 0,
-        delivered: 0,
-        cancelled: 0
-      };
+
+      const salesByStatus = { pending: 0, shipped: 0, delivered: 0, cancelled: 0 };
       ordersByStatus?.forEach(o => {
         if (salesByStatus[o.status] !== undefined) {
           salesByStatus[o.status] += parseFloat(o.total_amount || 0);
@@ -86,7 +77,7 @@ export default async function handler(req, res) {
         .select('created_at, total_amount')
         .gte('created_at', sevenDaysAgo.toISOString())
         .order('created_at', { ascending: true });
-      
+
       const dailySales = {};
       recentSalesData?.forEach(o => {
         const day = new Date(o.created_at).toLocaleDateString('en-US', { weekday: 'short' });
