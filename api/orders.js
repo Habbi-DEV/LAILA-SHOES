@@ -9,30 +9,40 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const { status, id } = req.query;
-      if (id) {
-        const { data, error } = await supabase
-          .from('orders')
-          .select('*, order_items(*)')
-          .eq('id', id)
-          .single();
-        if (error) throw error;
-        return res.status(200).json(data);
-      }
-      let query = supabase.from('orders').select('*, order_items(*)').order('created_at', { ascending: false });
+
+      // Fetch orders
+      let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
+      if (id) query = query.eq('id', id);
       if (status) query = query.eq('status', status);
-      const { data, error } = await query;
+
+      const { data: orders, error } = await query;
       if (error) throw error;
-      return res.status(200).json(data);
+
+      // Fetch all order items
+      const { data: allItems } = await supabase.from('order_items').select('*');
+
+      // Merge items into orders
+      const result = (orders || []).map(order => ({
+        ...order,
+        order_items: (allItems || []).filter(item => item.order_id === order.id)
+      }));
+
+      // If single order requested
+      if (id) {
+        return res.status(200).json(result[0] || null);
+      }
+
+      return res.status(200).json(result);
     }
 
     if (req.method === 'POST') {
       const { customer_name, customer_phone, wilaya, address, total_amount, items } = req.body;
-      
+
       // Create the order
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({ customer_name, customer_phone, wilaya, address, total_amount, status: 'pending' })
-        .select()
+        .select('*')
         .single();
       if (orderError) throw orderError;
 
@@ -61,6 +71,10 @@ export default async function handler(req, res) {
         }
       }
 
+      // Return order with items
+      const { data: newItems } = await supabase.from('order_items').select('*').eq('order_id', order.id);
+      order.order_items = newItems || [];
+
       return res.status(201).json(order);
     }
 
@@ -71,15 +85,24 @@ export default async function handler(req, res) {
         .from('orders')
         .update({ status })
         .eq('id', id)
-        .select('*, order_items(*)')
+        .select('*')
         .single();
       if (error) throw error;
+
+      // Attach items
+      const { data: items } = await supabase.from('order_items').select('*').eq('order_id', data.id);
+      data.order_items = items || [];
+
       return res.status(200).json(data);
     }
 
     if (req.method === 'DELETE') {
       const { id } = req.body;
       if (!id) return res.status(400).json({ error: 'Order ID is required' });
+
+      // Delete order items first
+      await supabase.from('order_items').delete().eq('order_id', id);
+
       const { error } = await supabase
         .from('orders')
         .delete()
